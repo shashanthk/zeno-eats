@@ -1,0 +1,45 @@
+plugins {
+	id 'org.springframework.boot' version '3.5.7' apply false
+	id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+// Centralized version management for dependencies
+ext {
+    springBootVersion = '3.5.7'
+    lombokVersion = '1.18.34'
+    javaVersion = 21
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management' // enable dependency management
+
+    group = 'io.zenoeats'
+    version = '0.0.1'
+    sourceCompatibility = javaVersion
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(javaVersion) // change to 25 only if you have it
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    // Import Boot BOM so Spring Boot starter coordinates get versions
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        }
+    }
+
+    dependencies {
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
