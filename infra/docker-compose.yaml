@@ -22,4 +22,4 @@ volumes:
   zeno-eats-data:
 
 networks:
-    zeno-eats-network:
+  zeno-eats-network:
