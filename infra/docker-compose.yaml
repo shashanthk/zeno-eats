@@ -17,6 +17,23 @@ services:
     # Use a named volume for data persistence
     volumes:
       - zeno-eats-data:/var/lib/mysql
+  
+  zeno-redis-cache:
+    image: redis:alpine3.22
+    container_name: zeno-redis-cache
+    restart: unless-stopped
+    volumes:
+      - zeno-eats-data:/data
+    command: ["redis-server"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
 
 volumes:
   zeno-eats-data:
