@@ -1,0 +1,28 @@
+meta {
+  name: Update Restaurant
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{RESTAURANT_BASE_URL}}/restaurants/:id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  id: 1
+}
+
+body:json {
+  {
+    "name": "Test2",
+    "address": "qwerty",
+    "phone": "9876543210"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
