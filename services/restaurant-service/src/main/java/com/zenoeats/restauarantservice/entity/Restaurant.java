@@ -1,17 +1,17 @@
 package com.zenoeats.restauarantservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = "menuItems")
+@EqualsAndHashCode(of = "id")
 @Entity
 @Table(name = "restaurant")
 public class Restaurant {
@@ -23,7 +23,8 @@ public class Restaurant {
     private String name;
     private String address;
     private String phone;
-    private Boolean active;
+    @Builder.Default
+    private Boolean active = true;
 
     @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MenuItem> menuItems;
