@@ -1,15 +1,14 @@
 package com.zenoeats.restauarantservice.exception;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
-@EqualsAndHashCode(callSuper = true)
-@Data
+@Getter
 public class RestaurantNotFoundException extends RuntimeException {
 
-    private Long id;
+    private final Long id;
 
     public RestaurantNotFoundException(Long id) {
         super("Restaurant not found with id: " + id);
+        this.id = id;
     }
 }

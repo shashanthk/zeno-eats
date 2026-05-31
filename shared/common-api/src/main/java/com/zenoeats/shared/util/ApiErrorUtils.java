@@ -4,7 +4,6 @@ import com.zenoeats.shared.dto.ApiError;
 import org.springframework.validation.BindingResult;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public final class ApiErrorUtils {
 
@@ -19,6 +18,6 @@ public final class ApiErrorUtils {
                 .rejectedValue(fe.getRejectedValue())
                 .build()
             )
-            .collect(Collectors.toList());
+            .toList();
     }
 }
