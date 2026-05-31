@@ -2,21 +2,8 @@ plugins {
     id 'java-library'
 }
 
-group = 'io.zenoeats'
-version = '0.0.1'
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    api 'com.fasterxml.jackson.core:jackson-databind:2.15.2' // pin versions across services
+    api 'com.fasterxml.jackson.core:jackson-databind'
     compileOnly "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     implementation 'org.springframework.boot:spring-boot-starter-validation'
