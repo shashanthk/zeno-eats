@@ -1,0 +1,41 @@
+package com.zenoeats.userservice.exception;
+
+import com.zenoeats.shared.dto.ApiError;
+import com.zenoeats.shared.dto.ApiResponse;
+import com.zenoeats.shared.dto.ErrorCode;
+import com.zenoeats.shared.util.ApiErrorUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmailExists(EmailAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    // Spring Security throws this when email/password don't match
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentials() {
+        // Deliberately vague — never tell the caller whether email or password was wrong
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiResponse.error("Invalid email or password"));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
+        ApiError apiError = ApiError.builder()
+            .code(ErrorCode.VALIDATION_FAILED.name())
+            .detail("One or more fields failed validation")
+            .fieldErrors(ApiErrorUtils.fromBindingResult(ex.getBindingResult()))
+            .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ApiResponse.error("Validation failed", apiError));
+    }
+}

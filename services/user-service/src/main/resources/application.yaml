@@ -1,3 +1,22 @@
 spring:
   application:
     name: user-service
+  datasource:
+    url: ${USER_DB_URL:jdbc:postgresql://localhost:5432/zeno_users_db}
+    username: ${USER_DB_USERNAME:zeno_user_app}
+    password: ${USER_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        ddl-auto: update
+
+server:
+  port: 8080
+
+jwt:
+  private-key: ${JWT_PRIVATE_KEY}
+  public-key: ${JWT_PUBLIC_KEY}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
