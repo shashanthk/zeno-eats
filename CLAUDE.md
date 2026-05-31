@@ -4,20 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-ZenoEats is a food delivery platform built as a Gradle multi-module monorepo. The project is early-stage; `restaurant-service` has a full CRUD implementation while `user-service` is an empty skeleton awaiting auth implementation (see `docs/ROADMAP.md` for the 8-week plan).
+ZenoEats is a food delivery platform built as a Gradle multi-module monorepo. See `docs/ROADMAP.md` for the full architecture vision, decisions log, current state per service, and remaining roadmap. Reading `CLAUDE.md` + `docs/ROADMAP.md` is enough to resume work cold.
 
 ## Tech Stack
 
 - **Java 21**, **Spring Boot 3.5.7**, **Gradle 8.14.3**
-- **Persistence**: JPA/Hibernate with MariaDB; `ddl-auto: update` (schema auto-evolves on startup)
-- **Mapping**: MapStruct 1.6.3 for DTO↔Entity conversion
-- **Infrastructure**: Docker Compose — MariaDB (3306) and Redis (6379) in `infra/`
+- **Persistence**: JPA/Hibernate — `restaurant-service` uses MariaDB, `user-service` uses PostgreSQL; `ddl-auto: update`
+- **Security**: Spring Security 6, stateless JWT (RS256 via JJWT 0.12.x)
+- **Mapping**: MapStruct 1.6.3
+- **Infrastructure**: Docker Compose — MariaDB (3306), PostgreSQL (5432), Redis (6379) in `infra/`
 - **API Testing**: Bruno collections in `api-collections/`
 
 ## Commands
 
 ```bash
-# Start infrastructure (run from infra/ or use the full path)
+# Start all infrastructure
 docker compose -f infra/docker-compose.yaml up -d
 
 # Build all modules
@@ -43,10 +44,12 @@ docker compose -f infra/docker-compose.yaml up -d
 ```
 zenoeats/
 ├── services/
-│   ├── restaurant-service/   # Full CRUD, port 8082
-│   └── user-service/         # Skeleton only, port 8080
+│   ├── restaurant-service/   # Full CRUD, port 8082, MariaDB
+│   └── user-service/         # Auth (register/login/me), port 8080, PostgreSQL
 ├── shared/
 │   └── common-api/           # Shared response DTOs (java-library)
+├── docs/
+│   └── ROADMAP.md            # Architecture decisions, current state, remaining plan
 └── infra/
     ├── docker-compose.yaml
     └── .env.example           # Copy to .env before running
@@ -54,30 +57,93 @@ zenoeats/
 
 ### Dependency Graph
 
-All services depend on `:shared:common-api` for shared types. `common-api` is a `java-library` and exports Jackson, Lombok, and Jakarta validation transitively.
+All services depend on `:shared:common-api`. It is a `java-library` and exports Jackson, Lombok, and Jakarta validation transitively. Dependency versions are managed by the Spring BOM in the root `build.gradle` — never pin versions in subproject build files unless the BOM does not cover them.
 
 ### Shared Response Contract
 
-Every endpoint wraps its result in `ApiResponse<T>` from `shared/common-api`:
+Every endpoint — success and error — wraps its result in `ApiResponse<T>` from `shared/common-api`:
 ```java
-ApiResponse.success("Restaurant created", dto);   // 2xx
-ApiResponse.error("Not found");                    // 4xx/5xx
+ApiResponse.success("Restaurant created", dto);        // 2xx
+ApiResponse.error("Not found");                        // 4xx/5xx
+ApiResponse.error("Validation failed", apiError);      // 400 with field errors
 ```
 
-`ErrorCode` enum (VALIDATION_FAILED, NOT_FOUND, etc.) and `ApiErrorUtils` for extracting field-level validation errors are in `shared/common-api/src/main/java/com/zenoeats/shared/`.
+`ErrorCode` enum, `ApiError`, and `ApiErrorUtils.fromBindingResult()` are in `shared/common-api/src/main/java/com/zenoeats/shared/`.
+
+Every service must have a `@RestControllerAdvice GlobalExceptionHandler` that handles at minimum:
+- Domain-specific exceptions → `ApiResponse.error()`
+- `MethodArgumentNotValidException` → `ApiResponse.error()` with `ApiErrorUtils`
 
 ### Restaurant Service Layers
 
-`RestaurantController` → `RestaurantService` (interface) → `RestaurantServiceImpl` → `RestaurantRepository` (JPA). `RestaurantMapper` (MapStruct) handles `RestaurantRequest`/`RestaurantResponse` ↔ `Restaurant` entity. `GlobalExceptionHandler` (`@ControllerAdvice`) catches `RestaurantNotFoundException`.
+`RestaurantController` → `RestaurantService` (interface) → `RestaurantServiceImpl` → `RestaurantRepository` (JPA).
+`RestaurantMapper` (MapStruct) handles DTOs ↔ entity including `@MappingTarget` for updates.
+`Restaurant` has `@OneToMany` to `MenuItem`.
 
-`Restaurant` has a `@OneToMany` relationship to `MenuItem`.
+### User Service Layers
+
+`AuthController` / `UserController` → `AuthService` → `AuthServiceImpl` → `UserRepository`.
+
+Security filter chain (every request):
+```
+Request → JwtAuthenticationFilter → controller
+              ↓
+          extract Bearer token
+          JwtService.isTokenValid()  (verifies RS256 signature with RSAPublicKey)
+          load User from DB
+          set SecurityContextHolder  ← @AuthenticationPrincipal reads from here
+```
+
+`RsaKeyConfig` loads `RSAPrivateKey` + `RSAPublicKey` from Base64-encoded env vars at startup.
+`JwtService` signs with the private key, verifies with the public key (JJWT 0.12.x API).
+`SecurityConfig` uses `DaoAuthenticationProvider(UserDetailsService)` (Spring Security 6.4 API).
+
+### Entity Design Rules
+
+Never use `@Data` on JPA entities. Use:
+```java
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@ToString(exclude = "collectionField")   // if @OneToMany/@ManyToMany present
+@EqualsAndHashCode(of = "id")
+```
+Use `@Builder.Default` for any field with an initializer — Lombok `@Builder` ignores field
+initializers without it, producing silent `null` values on mapped entities.
+
+### Service Layer Rules
+
+```java
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)   // class-level default for reads
+public class MyServiceImpl implements MyService {
+
+    @Override
+    @Transactional                 // override for all write methods
+    public Dto create(Request req) { ... }
+}
+```
+
+Hibernate dirty-checks managed entities at transaction commit — no redundant `save()` call
+needed after mutating an entity fetched within the same transaction.
 
 ### Known Issues
 
-- Package has a typo: `restauarantservice` (double 'a') — leave as-is unless doing a full rename.
-- `GlobalExceptionHandler` in restaurant-service returns a raw `Map`, not `ApiResponse`. Should be unified with the shared pattern when touched.
-- `application.yaml` in restaurant-service has a hardcoded DB password — use env vars when implementing auth or production config.
+- Package typo in restaurant-service: `restauarantservice` (double 'a') — leave as-is unless doing a full rename.
+- `restaurant-service` still uses MariaDB; all other services target PostgreSQL. Migration planned in Week 3.
 
 ## Environment Setup
 
-Copy `infra/.env.example` to `infra/.env` and fill in DB credentials. The `application.yaml` for restaurant-service reads `spring.datasource` directly — ensure MariaDB is running before `bootRun`.
+Copy `infra/.env.example` to `infra/.env` and fill in all variables. The example file contains
+inline comments for every variable including how to generate the RS256 JWT key pair:
+
+```bash
+# Generate RSA key pair (run in Git Bash / WSL / macOS Terminal)
+openssl genrsa -out jwt_private.pem 2048
+openssl pkcs8 -topk8 -nocrypt -in jwt_private.pem -outform DER | base64 -w 0   # → JWT_PRIVATE_KEY
+openssl rsa -in jwt_private.pem -pubout -outform DER | base64 -w 0              # → JWT_PUBLIC_KEY
+```
+
+Start infrastructure before `bootRun`:
+```bash
+docker compose -f infra/docker-compose.yaml up -d
+```
