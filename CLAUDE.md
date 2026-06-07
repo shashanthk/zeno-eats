@@ -9,10 +9,10 @@ ZenoEats is a food delivery platform built as a Gradle multi-module monorepo. Se
 ## Tech Stack
 
 - **Java 21**, **Spring Boot 3.5.7**, **Gradle 8.14.3**
-- **Persistence**: JPA/Hibernate — `restaurant-service` uses MariaDB, `user-service` uses PostgreSQL; `ddl-auto: update`
+- **Persistence**: JPA/Hibernate — all services use PostgreSQL; `ddl-auto: update`
 - **Security**: Spring Security 6, stateless JWT (RS256 via JJWT 0.12.x)
 - **Mapping**: MapStruct 1.6.3
-- **Infrastructure**: Docker Compose — MariaDB (3306), PostgreSQL (5432), Redis (6379) in `infra/`
+- **Infrastructure**: Docker Compose — PostgreSQL restaurant-db (5433), PostgreSQL user-db (5432), Redis (6379) in `infra/`
 - **API Testing**: Bruno collections in `api-collections/`
 
 ## Commands
@@ -129,7 +129,6 @@ needed after mutating an entity fetched within the same transaction.
 ### Known Issues
 
 - Package typo in restaurant-service: `restauarantservice` (double 'a') — leave as-is unless doing a full rename.
-- `restaurant-service` still uses MariaDB; all other services target PostgreSQL. Migration planned in Week 3.
 
 ## Environment Setup
 

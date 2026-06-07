@@ -68,11 +68,12 @@ transitively via `api` scope.
 
 ### AD-3 — One database per service (polyglot persistence)
 Each service owns its own database and no other service touches it directly.
-- `restaurant-service` → MariaDB (was the first service, started before the PostgreSQL decision)
-- `user-service` → PostgreSQL
+- `restaurant-service` → PostgreSQL (port 5433)
+- `user-service` → PostgreSQL (port 5432)
 - All future services → PostgreSQL
 **Why:** Data ownership boundary. Schema changes in one service do not break others.
-`restaurant-service` should be migrated to PostgreSQL in a future cleanup session.
+Each service gets its own PostgreSQL instance in Docker Compose so there is no shared
+schema between services even at the infrastructure level.
 
 ### AD-4 — RS256 JWT (asymmetric) over HS256 (symmetric)
 `user-service` signs tokens with an RSA **private key**. Any other service verifies tokens
@@ -151,7 +152,7 @@ Custom exceptions use `@Getter` only (not `@Data`). Structured fields (e.g. `id`
 | `GlobalExceptionHandler` | Done — `404` + validation errors → `ApiResponse` |
 | Redis caching | **Not yet** — planned in Week 3 |
 | Menu versioning | **Not yet** — planned in Week 3 |
-| PostgreSQL migration | **Not yet** — MariaDB still used, should align with other services |
+| PostgreSQL migration | Done — MariaDB removed, now on PostgreSQL (port 5433) |
 
 ### `services/user-service` — Auth complete (port 8080, PostgreSQL)
 | Layer | Status |
@@ -171,11 +172,11 @@ Custom exceptions use `@Getter` only (not `@Data`). Structured fields (e.g. `id`
 | Role-based access control | **Not yet** — `Role` enum exists, wired to authorities, no `@PreAuthorize` yet |
 
 ### `infra/docker-compose.yaml`
-| Service | Image | Port | Volume |
-|---|---|---|---|
-| `zeno-mysql-db` | mariadb:12.0.2 | 3306 | `zeno-db-data` |
-| `zeno-postgres-db` | postgres:16-alpine | 5432 | `zeno-user-db-data` |
-| `zeno-redis-cache` | redis:alpine3.22 | 6379 | `zeno-redis-data` |
+| Container | Image | Host Port | Volume | Owns |
+|---|---|---|---|---|
+| `zeno-restaurant-db` | postgres:16-alpine | 5433 | `zeno-restaurant-db-data` | restaurant-service |
+| `zeno-user-db` | postgres:16-alpine | 5432 | `zeno-user-db-data` | user-service |
+| `zeno-redis-cache` | redis:alpine3.22 | 6379 | `zeno-redis-data` | shared cache |
 
 All services are on `zeno-eats-network` — containers resolve each other by container name.
 
