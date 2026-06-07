@@ -1,0 +1,29 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{USER_BASE_URL}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "john.doe@example.com",
+    "password": "password123"
+  }
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("AUTH_TOKEN", res.body.data.token);
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
