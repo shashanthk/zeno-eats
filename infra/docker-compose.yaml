@@ -1,17 +1,33 @@
 services:
-  zeno-mysql-db:
-    image: mariadb:12.0.2-noble
-    container_name: zeno-mysql-db
+  zeno-restaurant-db:
+    image: postgres:16-alpine
+    container_name: zeno-restaurant-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRES_DB: ${RESTAURANT_DB_NAME}
+      POSTGRES_USER: ${RESTAURANT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${RESTAURANT_DB_PASSWORD}
     ports:
-      - "3306:3306"
+      - "5433:5432"
     volumes:
-      - zeno-db-data:/var/lib/mysql
+      - zeno-restaurant-db-data:/var/lib/postgresql/data
+      - ./init/restaurant-service:/docker-entrypoint-initdb.d:ro
+    networks:
+      - zeno-eats-network
+
+  zeno-user-db:
+    image: postgres:16-alpine
+    container_name: zeno-user-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${USER_DB_NAME}
+      POSTGRES_USER: ${USER_DB_USERNAME}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - zeno-user-db-data:/var/lib/postgresql/data
+      - ./init/user-service:/docker-entrypoint-initdb.d:ro
     networks:
       - zeno-eats-network
 
@@ -32,25 +48,10 @@ services:
     networks:
       - zeno-eats-network
 
-  zeno-postgres-db:
-    image: postgres:16-alpine
-    container_name: zeno-postgres-db
-    restart: always
-    environment:
-      POSTGRES_DB: ${USER_DB_NAME}
-      POSTGRES_USER: ${USER_DB_USERNAME}
-      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - zeno-user-db-data:/var/lib/postgresql/data
-    networks:
-      - zeno-eats-network
-
 volumes:
-  zeno-db-data:
-  zeno-redis-data:
+  zeno-restaurant-db-data:
   zeno-user-db-data:
+  zeno-redis-data:
 
 networks:
   zeno-eats-network:
